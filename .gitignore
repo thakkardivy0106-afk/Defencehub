@@ -19,6 +19,7 @@ yarn-error.log*
 # Build outputs
 dist/
 build/
+*.zip
 
 # Operating System files
 .DS_Store

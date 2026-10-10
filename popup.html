@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DefenceHub</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- 1. Header (Dark Navy Brand & Test URL Toggle) -->
+    <header class="header">
+      <div class="brand">
+        <svg class="shield-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L3 6V12C3 17.52 6.84 22.74 12 24C17.16 22.74 21 17.52 21 12V6L12 2Z" fill="#132247"/>
+          <path d="M12 4.18L19 7.3V12C19 16.36 15.93 20.48 12 21.64C8.07 20.48 5 16.36 5 12V7.3L12 4.18Z" stroke="#3b82f6" stroke-width="1.8"/>
+          <path d="M9 12L11 14L15 9.5" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div>
+          <h1 class="brand-title">DefenceHub</h1>
+          <p class="brand-subtitle">AI Website Safety & Voice Companion</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="toggle-custom-btn" class="icon-btn" title="Test any custom URL" aria-label="Toggle custom URL test">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs Bar -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="nav-tab active" data-tab="tab-scan" role="tab" aria-selected="true">🛡️ Safety</button>
+      <button class="nav-tab" data-tab="tab-dna" role="tab" aria-selected="false">🧬 DNA</button>
+      <button class="nav-tab" data-tab="tab-password" role="tab" aria-selected="false">🔑 Pass</button>
+      <button class="nav-tab" data-tab="tab-phone" role="tab" aria-selected="false">📞 Phone</button>
+      <button class="nav-tab" data-tab="tab-settings" role="tab" aria-selected="false">⚙️ Settings</button>
+    </nav>
+
+    <!-- Custom URL Input Drawer -->
+    <div id="custom-url-drawer" class="custom-drawer hidden">
+      <div class="custom-drawer-header">
+        <span class="custom-drawer-title">Simulate & Test Any URL</span>
+        <button id="close-drawer-btn" class="text-btn">Close</button>
+      </div>
+      <div class="custom-input-group">
+        <input type="text" id="custom-url-input" placeholder="e.g. https://www.google.com or paypa1.com" spellcheck="false" autocomplete="off" />
+        <button id="scan-custom-btn" class="btn btn-secondary">Analyze</button>
+      </div>
+      <div class="test-chips-label">Quick Benchmark Scenarios:</div>
+      <div class="test-chips">
+        <button class="chip" data-test="https://www.google.com/">Google (Low Risk)</button>
+        <button class="chip" data-test="https://en.wikipedia.org/">Wikipedia (Safe)</button>
+        <button class="chip" data-test="http://example.com/">HTTP (Insecure)</button>
+        <button class="chip" data-test="https://paypa1.com/login">paypa1.com (Lookalike)</button>
+        <button class="chip" data-test="http://testsafebrowsing.appspot.com/s/phishing.html">SafeBrowsing Test</button>
+        <button class="chip" data-test="http://192.168.1.1/admin">IP Hostname</button>
+      </div>
+    </div>
+
+    <!-- Unsupported Internal Page Banner -->
+    <div id="unsupported-banner" class="alert-card hidden">
+      <div class="alert-icon">ℹ️</div>
+      <div class="alert-content">
+        <strong id="unsupported-title">System Page Detected</strong>
+        <p id="unsupported-message">Internal browser pages (chrome://, extensions, etc.) cannot be scanned. Navigate to any HTTP or HTTPS website to analyze its security.</p>
+      </div>
+    </div>
+
+    <!-- Error Banner -->
+    <div id="error-banner" class="alert-card alert-error hidden">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-content">
+        <strong>Analysis Error</strong>
+        <p id="error-message"></p>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- VIEW 1: SAFETY SCAN & OVERVIEW                 -->
+    <!-- ============================================== -->
+    <div id="view-scan" class="tab-view">
+      <!-- Voice Reporting & Audio Control Card -->
+      <div class="card voice-control-card" id="voice-control-card">
+        <div class="voice-status-wrap">
+          <span class="voice-indicator-dot" id="voice-indicator-dot"></span>
+          <div class="voice-info">
+            <span class="voice-title">Automatic Voice Reporting</span>
+            <span id="voice-status-text" class="voice-status-sub">Voice Active • Automatic voice report on navigation</span>
+          </div>
+        </div>
+        <div class="voice-actions">
+          <button id="voice-replay-btn" class="btn btn-sm btn-secondary" title="Replay spoken report for this page">
+            <span>🔁</span> Replay
+          </button>
+          <button id="voice-mute-btn" class="btn btn-sm btn-secondary" title="Toggle voice mute">
+            <span id="voice-mute-icon">🔊</span> <span id="voice-mute-text">Mute</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Tab Card -->
+      <div id="active-tab-card" class="card active-tab-card">
+        <div class="tab-info-row">
+          <div class="tab-meta">
+            <div class="tab-label-row">
+              <span class="tab-label">Current Website</span>
+              <span id="analysis-status-badge" class="analysis-status-pill">Automatic Scan Active</span>
+            </div>
+            <div class="hostname-row">
+              <span id="tab-protocol-badge" class="badge badge-protocol">HTTPS</span>
+              <span id="tab-hostname" class="hostname-text" title="Loading current tab...">Checking active tab...</span>
+            </div>
+            <span id="last-analyzed-time" class="last-analyzed-time">Analyzed automatically on tab navigation</span>
+          </div>
+        </div>
+        <button id="scan-btn" class="btn btn-primary">
+          <span id="scan-btn-icon">🛡️</span>
+          <span id="scan-btn-text">Re-analyze Active Website</span>
+        </button>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loading-state" class="loading-container hidden">
+        <div class="spinner"></div>
+        <span>Evaluating multi-factor security signals & reputation...</span>
+      </div>
+
+      <!-- Results Section -->
+      <main id="results-section" class="results-section">
+        <!-- Score Card -->
+        <section class="card score-card" id="score-card">
+          <div class="score-header">
+            <div>
+              <span class="score-title">Website Safety Assessment</span>
+              <div id="score-scale-text" class="score-scale">Safety Score (0–100) • Heuristic Index</div>
+            </div>
+            <div id="risk-level-badge" class="badge badge-risk badge-low">Low Risk</div>
+          </div>
+
+          <div class="score-display-row">
+            <div class="score-number-group">
+              <span id="score-number" class="score-number">--</span>
+              <span class="score-max">/100</span>
+            </div>
+            <div class="score-meter-wrap">
+              <div class="score-meter-bg">
+                <div id="score-meter-fill" class="score-meter-fill" style="width: 0%;"></div>
+              </div>
+              <div class="score-legend">
+                <span>0 Danger</span>
+                <span>45 Caution</span>
+                <span>75 Low Risk</span>
+                <span>100 Verified</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Telemetry Badges Row -->
+          <div class="telemetry-row" id="telemetry-row">
+            <span id="telemetry-protocol" class="telemetry-chip">HTTPS Encrypted</span>
+            <span id="telemetry-authority" class="telemetry-chip">Verified Authority</span>
+            <span id="telemetry-structure" class="telemetry-chip">Clean Domain</span>
+          </div>
+
+          <!-- Evidence & Confidence Attributes -->
+          <div class="evidence-model-row" id="evidence-model-row" style="display:flex; justify-content:space-between; align-items:center; margin:8px 0 4px 0; font-size:11px; padding:6px 8px; background:rgba(255,255,255,0.03); border-radius:6px; border:1px solid rgba(255,255,255,0.06);">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="color:var(--text-secondary);">Confidence:</span>
+              <span id="confidence-badge" class="badge" style="background:#1e3a5f; color:#93c5fd; font-size:10px; padding:2px 6px;">HIGH</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="color:var(--text-secondary);">Reputation:</span>
+              <span id="reputation-badge" class="badge" style="background:#27374d; color:#cbd5e1; font-size:10px; padding:2px 6px;">Not Configured</span>
+            </div>
+          </div>
+          <div id="coverage-row" style="font-size:10.5px; color:var(--text-secondary); margin-bottom:8px; line-height:1.3;">
+            <span style="color:var(--text-muted);">Coverage:</span> <span id="coverage-text">URL analysis and page signals completed</span>
+          </div>
+
+          <p id="score-summary" class="score-summary">
+            Evaluating website heuristics and security signals...
+          </p>
+
+          <!-- Actions Row -->
+          <div class="action-row">
+            <button id="view-report-btn" class="btn btn-secondary">Detailed Evidence Report</button>
+            <button id="leave-site-btn" class="btn btn-outline-danger">Leave Site</button>
+          </div>
+        </section>
+
+        <!-- Security Findings & Trust Signals -->
+        <section class="card" id="flagged-section">
+          <div class="section-header">
+            <h2 class="section-title" id="findings-section-title">Observed Security Indicators</h2>
+            <span id="findings-count" class="badge badge-count">0 Signals</span>
+          </div>
+
+          <div id="positive-signals-list" class="signals-list hidden"></div>
+          <div id="findings-list" class="findings-list hidden"></div>
+          <div id="no-findings" class="empty-state hidden">
+            <span class="empty-icon">✓</span>
+            <p>No anomalous threat patterns detected in active heuristics.</p>
+          </div>
+        </section>
+
+        <!-- Security Signal Verification (Checks Completed vs Unavailable) -->
+        <section class="card checks-card" id="checks-section">
+          <div class="section-header">
+            <h2 class="section-title">Signal Verification Inventory</h2>
+            <span class="badge badge-protocol" id="checks-ratio-badge">Transparent Audit</span>
+          </div>
+          
+          <div class="checks-subsection">
+            <span class="checks-subtitle">✓ Checks Completed</span>
+            <div id="checks-completed-list" class="checks-list"></div>
+          </div>
+          
+          <div class="checks-subsection" style="margin-top: 10px;">
+            <span class="checks-subtitle checks-subtitle-unavail">ℹ️ Checks Unavailable</span>
+            <div id="checks-unavailable-list" class="checks-list"></div>
+          </div>
+
+          <div class="disclaimer-box">
+            <span class="disclaimer-icon">🛡️</span>
+            <p class="disclaimer-text">
+              <strong>Notice:</strong> A low detected risk indicates that no suspicious patterns were observed among the checked signals. It does not provide an absolute guarantee of safety.
+            </p>
+          </div>
+        </section>
+
+        <!-- Security Coach Guidance -->
+        <section class="card coach-card" id="coach-section">
+          <div class="section-header">
+            <div class="coach-title-wrap">
+              <span class="coach-icon">💡</span>
+              <h2 class="section-title">Security Coach Guidance</h2>
+            </div>
+            <span class="coach-tag">Advisor</span>
+          </div>
+          <ul id="coach-list" class="coach-list">
+            <li>Always confirm the address bar matches the service you intend to visit before entering credentials.</li>
+          </ul>
+        </section>
+
+        <!-- Recent Scans History -->
+        <section class="card history-card" id="history-section">
+          <div class="section-header">
+            <h2 class="section-title">Recent Scans</h2>
+            <button id="clear-history-btn" class="text-btn danger-link">Clear History</button>
+          </div>
+          <div id="history-empty" class="history-empty">
+            <span>No recent scans saved yet.</span>
+          </div>
+          <ul id="history-list" class="history-list hidden"></ul>
+        </section>
+      </main>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- VIEW 2: WEBSITE DNA (Change Detection)         -->
+    <!-- ============================================== -->
+    <div id="view-dna" class="tab-view hidden">
+      <div class="card dna-card">
+        <div class="section-header">
+          <h2 class="section-title">Website DNA Profile</h2>
+          <span id="dna-domain-badge" class="badge badge-protocol">Current Domain</span>
+        </div>
+        <p style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.4;">
+          DefenceHub maintains minimal security baselines to detect unexpected infrastructure shifts across visits.
+        </p>
+
+        <div id="dna-status-box" class="dna-status-banner dna-match">
+          <strong id="dna-status-title">Profile Baseline Active</strong>
+          <p id="dna-status-desc">No unexpected configuration changes observed since initial baseline.</p>
+        </div>
+
+        <div class="dna-stat-grid">
+          <div class="dna-stat-box">
+            <div class="dna-stat-label">Baseline Established</div>
+            <div id="dna-first-seen" class="dna-stat-val">Today</div>
+          </div>
+          <div class="dna-stat-box">
+            <div class="dna-stat-label">Visit Observations</div>
+            <div id="dna-visit-count" class="dna-stat-val">1 scan</div>
+          </div>
+          <div class="dna-stat-box">
+            <div class="dna-stat-label">Protocol Baseline</div>
+            <div id="dna-protocol-base" class="dna-stat-val">HTTPS</div>
+          </div>
+          <div class="dna-stat-box">
+            <div class="dna-stat-label">Baseline Risk</div>
+            <div id="dna-risk-base" class="dna-stat-val">Low</div>
+          </div>
+        </div>
+
+        <button id="forget-dna-btn" class="btn btn-secondary">Forget this profile</button>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- VIEW 3: PASSWORD TOOLS (Web Crypto API)        -->
+    <!-- ============================================== -->
+    <div id="view-password" class="tab-view hidden">
+      <div class="card password-box">
+        <div class="section-header">
+          <h2 class="section-title">Password Security Tools</h2>
+          <span class="badge badge-count">100% Client-Side</span>
+        </div>
+        <p style="font-size: 11px; color: var(--text-muted); line-height: 1.35;">
+          Generate cryptographically random passwords via Web Crypto API (never transmitted).
+        </p>
+
+        <div class="pass-output-wrap">
+          <input type="text" id="gen-password-output" readonly value="" placeholder="Click Generate..." />
+          <button id="copy-pass-btn" class="btn btn-secondary" title="Copy to clipboard">Copy</button>
+        </div>
+
+        <div class="pass-controls">
+          <div class="slider-row">
+            <label for="pass-len-slider" style="font-size:11px; color:var(--text-secondary);">Length: <strong id="pass-len-val">16</strong></label>
+            <input type="range" id="pass-len-slider" min="10" max="32" value="16" />
+          </div>
+          <div class="checkbox-row">
+            <label><input type="checkbox" id="pass-opt-symbols" checked /> Symbols</label>
+            <label><input type="checkbox" id="pass-opt-numbers" checked /> Numbers</label>
+          </div>
+          <button id="generate-pass-btn" class="btn btn-primary" style="margin-top:4px;">Generate New Password</button>
+        </div>
+
+        <div class="pass-meter-section" style="margin-top:14px; border-top:1px solid var(--border-color); padding-top:10px;">
+          <label class="tab-label">Check Password Entropy (Local Only)</label>
+          <input type="password" id="check-password-input" placeholder="Type a password to test entropy..." class="text-input" />
+          <div class="strength-bar-bg">
+            <div id="pass-strength-meter" class="strength-bar-fill"></div>
+          </div>
+          <span id="pass-strength-label" class="strength-label">Enter password</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- VIEW 4: PHONE NUMBER CHECKER                   -->
+    <!-- ============================================== -->
+    <div id="view-phone" class="tab-view hidden">
+      <div class="card phone-box">
+        <div class="section-header">
+          <h2 class="section-title">Phone Number Format Validator</h2>
+          <span class="badge badge-count">E.164 Standard</span>
+        </div>
+        <p style="font-size: 11px; color: var(--text-muted); line-height: 1.35;">
+          Validates international formatting, suspicious VoIP patterns, and premium-rate prefixes.
+        </p>
+
+        <div class="custom-input-group">
+          <input type="text" id="phone-input" class="text-input" placeholder="e.g. +1 800 555 0199" />
+          <button id="check-phone-btn" class="btn btn-secondary">Check</button>
+        </div>
+
+        <div id="phone-result-card" class="phone-result-card hidden">
+          <strong id="phone-format-status">Format Valid</strong>
+          <p id="phone-details" style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;"></p>
+        </div>
+
+        <div class="alert-card" style="margin-top: 4px;">
+          <div class="alert-icon">ℹ️</div>
+          <div class="alert-content">
+            <strong>Evidence Limitation</strong>
+            <p>Formatting validation alone cannot establish whether a number is fraudulent without a configured external reputation provider.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- VIEW 5: SETTINGS & PRIVACY                     -->
+    <!-- ============================================== -->
+    <div id="view-settings" class="tab-view hidden">
+      <div class="card settings-list">
+        <div class="section-header">
+          <h2 class="section-title">Settings & Threat Intelligence</h2>
+          <span class="badge badge-low">Configurable</span>
+        </div>
+
+        <!-- Google Safe Browsing API Key Integration -->
+        <div class="settings-group">
+          <label class="tab-label">Google Safe Browsing v4 (Optional)</label>
+          <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; line-height: 1.35;">
+            Configure your Google Safe Browsing API key to supplement client heuristics with Google's cloud phishing & malware threat intelligence.
+          </p>
+          <div class="custom-input-group">
+            <input type="password" id="api-key-input" class="text-input" placeholder="Enter Google Cloud API Key" spellcheck="false" autocomplete="off" />
+            <button id="save-api-key-btn" class="btn btn-secondary">Save Key</button>
+          </div>
+          <span id="api-key-status" class="setting-status-hint"></span>
+        </div>
+
+        <!-- Privacy & Permissions Audit -->
+        <div style="border-top: 1px solid var(--border-color); padding-top: 8px;">
+          <label class="tab-label">Privacy & Data Boundary</label>
+          <ul style="font-size: 11px; color: var(--text-secondary); list-style: square; padding-left: 16px; line-height: 1.5; margin-top: 4px;">
+            <li>Zero telemetry sent to third parties without an explicit user API key.</li>
+            <li>Passwords, form contents, cookies, and page text are never transmitted.</li>
+            <li>URL query strings are stripped before querying any external reputation API.</li>
+          </ul>
+        </div>
+
+        <div style="border-top: 1px solid var(--border-color); padding-top: 8px;">
+          <label class="tab-label">Data Management</label>
+          <div style="display: flex; gap: 6px; margin-top: 4px;">
+            <button id="clear-all-data-btn" class="btn btn-secondary" style="flex:1;">Clear Local History & Baselines</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Security Report Modal -->
+    <div id="report-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="modal-title">Detailed Security Report</span>
+          <button id="close-report-btn" class="icon-btn">&times;</button>
+        </div>
+
+        <div class="report-section">
+          <span class="report-section-title">Observed Facts</span>
+          <div id="report-facts-box" class="report-box">Loading facts...</div>
+        </div>
+
+        <div class="report-section">
+          <span class="report-section-title">Inferences & Confidence</span>
+          <div id="report-inferences-box" class="report-box">Loading inferences...</div>
+        </div>
+
+        <div class="report-section">
+          <span class="report-section-title">Recommended Safe Next Steps</span>
+          <div id="report-actions-box" class="report-box">Loading recommended actions...</div>
+        </div>
+
+        <button id="modal-close-btn" class="btn btn-primary" style="margin-top: 4px;">Close Report</button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>DefenceHub • Privacy-First Security & Voice Companion</span>
+    </footer>
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

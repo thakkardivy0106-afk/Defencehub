@@ -1276,11 +1276,222 @@ body {
   transition: 0.25s ease;
   border-radius: 50%;
 }
-input:checked + .slider {
-  background-color: #3b82f6;
+/* Unified Menu Button & Popover Navigation */
+.menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #f1f5f9;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
-input:checked + .slider:before {
-  transform: translateX(16px);
+
+.menu-btn:hover, .menu-btn:focus-visible {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: #60a5fa;
+  color: #ffffff;
+  outline: none;
+}
+
+.menu-btn-text {
+  letter-spacing: 0.3px;
+}
+
+.menu-popover {
+  position: absolute;
+  top: 48px;
+  right: 12px;
+  width: 250px;
+  background: #0b1329;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7), 0 4px 10px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  overflow: hidden;
+  animation: menuFadeIn 0.18s ease-out;
+}
+
+@keyframes menuFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.menu-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.menu-popover-title {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #60a5fa;
+  text-transform: uppercase;
+}
+
+.menu-close-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.menu-close-icon:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.menu-items {
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  gap: 2px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: all 0.15s ease;
+}
+
+.menu-item:hover, .menu-item:focus-visible {
+  background: rgba(30, 58, 138, 0.35);
+  border-color: rgba(96, 165, 250, 0.3);
+  outline: none;
+}
+
+.menu-item.active {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.menu-item-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.menu-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+
+.menu-item-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.menu-item-sub {
+  font-size: 9.5px;
+  color: var(--text-secondary);
+}
+
+.menu-active-dot {
+  font-size: 8px;
+  color: #38bdf8;
+  opacity: 0;
+}
+
+.menu-item.active .menu-active-dot {
+  opacity: 1;
+}
+
+/* Subview Navigation */
+.subview-nav {
+  margin-bottom: 8px;
+}
+
+.back-nav-btn {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid var(--border-color);
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.back-nav-btn:hover, .back-nav-btn:focus-visible {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: #60a5fa;
+  color: #ffffff;
+  outline: none;
+}
+
+/* Password Vault Elements */
+.vault-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vault-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  margin-bottom: 4px;
+}
+
+.vault-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.vault-item-domain {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vault-item-user {
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vault-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .hidden {

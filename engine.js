@@ -1261,70 +1261,136 @@
     }
 
     // =========================================================================
-    // 5. EVIDENCE-BASED RISK SCORING ENGINE (0-100 Scale)
     // =========================================================================
-    // Normalized Risk Scale:
-    // 0-19: Low observed risk
-    // 20-39: Some concerns (Medium)
-    // 40-59: Suspicious
-    // 60-79: High risk
-    // 80-100: Critical risk
+    // 5. MODULAR EVIDENCE-BASED SCORING SYSTEM (0 - 100 SCALE)
+    // =========================================================================
+    // Weight Distribution:
+    // Category                                | Max Points
+    // 1. Threat-intelligence evidence          | 30
+    // 2. URL and domain indicators             | 20
+    // 3. Phishing and impersonation analysis   | 20
+    // 4. Transport and browser-visible signals | 10
+    // 5. Page-level suspicious behavior        | 15
+    // 6. Evidence quality and freshness        | 5
+    // Total                                    | 100
 
-    const threatPoints = findings.reduce((sum, f) => sum + f.points, 0);
+    // Category 1: Threat-Intelligence Evidence (30 pts max)
+    let threatIntelPoints = 0;
+    let threatIntelDetail = 'Threat intelligence provider not configured';
+    const isConfirmedMalicious = reputationStatus === 'CONFIRMED_THREAT' || findings.some(f => f.id === 'RULE_KNOWN_THREAT_MATCH');
 
-    // Baseline Risk (0-19 is Low Risk: 15 for clean unvetted domains, near-zero for top authorities)
-    let baselineRisk = 15; // Baseline for clean unvetted domains (0-19 is Low Risk)
-
-    if (isTopAuthority) {
-      baselineRisk = 5;
-    } else if (isGov || isEdu) {
-      baselineRisk = 8;
-    } else if (matchedOfficialBrand) {
-      baselineRisk = 6;
+    if (isConfirmedMalicious) {
+      threatIntelPoints = 0;
+      threatIntelDetail = 'Confirmed malicious threat detected by threat intelligence';
+    } else if (reputationStatus === 'NO_KNOWN_MATCH') {
+      threatIntelPoints = 30;
+      threatIntelDetail = 'External threat intelligence verified: Clean record';
+    } else if (isTopAuthority || matchedOfficialBrand || isGov || isEdu) {
+      threatIntelPoints = 30;
+      threatIntelDetail = 'Verified global authority / authenticated institutional registry standing';
+    } else if (reputationStatus === 'UNAVAILABLE') {
+      threatIntelPoints = 0;
+      threatIntelDetail = 'Threat intelligence provider timed out or offline';
+    } else {
+      // NOT_CONFIGURED
+      // Award baseline reputation points for domains with an established reputable TLD and clean structure
+      const hasEstablishedZone = hierarchy.tld && !HIGH_ABUSE_TLDS.has(hierarchy.tld.toLowerCase()) && !hierarchy.isIp;
+      const hasCleanStructure = hierarchy.subdomainLabels.length <= 1;
+      if (hasEstablishedZone && hasCleanStructure) {
+        threatIntelPoints = 15;
+        threatIntelDetail = 'Standard established domain zone with clean structure (external API unconfigured)';
+      } else {
+        threatIntelPoints = 5;
+        threatIntelDetail = 'Unvetted third-party domain without external reputation query';
+      }
     }
 
-    // Insecure HTTP penalty: adds 15 risk points
-    if (isHttp) {
-      baselineRisk += 15;
+    // Category 2: URL & Domain Structure Indicators (20 pts max)
+    let urlPoints = 20;
+    let urlDeductions = 0;
+    findings.forEach(f => {
+      if (f.category === 'Domain Structure' || f.category === 'Domain Reputation' || f.id === 'RULE_NON_STANDARD_PORT') {
+        urlDeductions += Math.min(20, f.points);
+      }
+    });
+    urlPoints = Math.max(0, urlPoints - urlDeductions);
+
+    // Category 3: Phishing and Impersonation Analysis (20 pts max)
+    let phishingPoints = 20;
+    let phishingDeductions = 0;
+    findings.forEach(f => {
+      if (f.category === 'Brand Impersonation' || f.category === 'URL Structure' || f.category === 'URL Content') {
+        phishingDeductions += Math.min(20, f.points);
+      }
+    });
+    phishingPoints = Math.max(0, phishingPoints - phishingDeductions);
+
+    // Category 4: Transport and Browser-Visible Signals (10 pts max)
+    let transportPoints = isHttps ? 10 : 0;
+
+    // Category 5: Page-Level Suspicious Behavior (15 pts max)
+    let pagePoints = 15;
+    let pageDetail = 'Page DOM telemetry was inaccessible (URL-only mode; standard baseline applied)';
+    if (domAvailable) {
+      let pageDeductions = 0;
+      findings.forEach(f => {
+        if (f.category === 'Content Security') {
+          pageDeductions += Math.min(15, f.points);
+        }
+      });
+      pagePoints = Math.max(0, 15 - pageDeductions);
+      pageDetail = pageDeductions > 0 ? 'Page telemetry flagged suspicious behaviors' : 'Verified clean forms and page behavior';
     }
 
-    let calculatedRisk = baselineRisk;
-
-    if (threatPoints > 0) {
-      calculatedRisk += threatPoints;
+    // Category 6: Evidence Quality and Freshness (5 pts max)
+    let qualityPoints = 2; // Baseline URL analysis ran
+    if (domAvailable && (reputationStatus === 'NO_KNOWN_MATCH' || isTopAuthority || matchedOfficialBrand)) {
+      qualityPoints = 5; // Multi-layer verified coverage
+    } else if (domAvailable) {
+      qualityPoints = 4; // URL + DOM coverage
+    } else if (reputationStatus === 'UNAVAILABLE') {
+      qualityPoints = 0;
     }
 
-    // Enforce Evidence-Based Escalation Floors
+    // Raw evidence sum (0 - 100)
+    let rawEvidenceScore = threatIntelPoints + urlPoints + phishingPoints + transportPoints + pagePoints + qualityPoints;
+
+    // Evidence-Based Threat Escalation Floors
     const hasCriticalThreat = findings.some(f => f.severity === 'CRITICAL');
     const hasCorrelatedPhishing = findings.some(f => f.id === 'RULE_CORRELATED_CREDENTIAL_HARVESTING');
     const hasConfirmedReputation = findings.some(f => f.id === 'RULE_REPUTATION_THREAT');
     const hasBrandImpersonation = findings.some(f => f.category === 'Brand Impersonation');
     const hasIpHostname = hierarchy.isIp;
+    const threatPoints = findings.reduce((sum, f) => sum + f.points, 0);
 
-    if (hasCorrelatedPhishing || hasConfirmedReputation) {
-      calculatedRisk = Math.max(85, calculatedRisk); // Escalates firmly to Critical Risk (85-95)
+    let finalSafetyScore = rawEvidenceScore;
+
+    // Mandatory rule: A confirmed malicious match or critical phishing pattern must trigger a strong warning
+    if (hasCorrelatedPhishing || hasConfirmedReputation || isConfirmedMalicious) {
+      finalSafetyScore = Math.min(10, finalSafetyScore); // Critical Risk (Safety: 5-10, Risk: 85-95)
+    } else if (threatPoints >= 60 || findings.some(f => f.id === 'RULE_EMBEDDED_CREDENTIALS')) {
+      finalSafetyScore = Math.min(20, finalSafetyScore); // Severe Multi-Threat Phishing (Safety: 5-20, Risk: 80-95)
     } else if (hasCriticalThreat || (hasBrandImpersonation && threatPoints >= 35)) {
-      calculatedRisk = Math.max(65, calculatedRisk); // Escalates firmly to High Risk (65-80)
+      finalSafetyScore = Math.min(35, finalSafetyScore); // High Risk (Safety: 20-35, Risk: 65-80)
     } else if (hasIpHostname && isHttp) {
-      calculatedRisk = Math.max(80, calculatedRisk); // Bare IP + unencrypted HTTP escalates to 80+
+      finalSafetyScore = Math.min(20, finalSafetyScore); // High Risk (Safety: 20, Risk: 80)
     } else if (hasIpHostname) {
-      calculatedRisk = Math.max(60, calculatedRisk); // Bare IP escalates to High Risk (60+)
+      finalSafetyScore = Math.min(35, finalSafetyScore); // High Risk (Safety: 35, Risk: 65)
     } else if (threatPoints >= 30) {
-      calculatedRisk = Math.max(60, calculatedRisk);
+      finalSafetyScore = Math.min(40, finalSafetyScore);
+    } else if (threatPoints >= 25) {
+      finalSafetyScore = Math.min(60, finalSafetyScore);
     } else if (threatPoints >= 10 || isHttp) {
-      calculatedRisk = Math.max(26, calculatedRisk); // Medium Risk (26-45)
+      finalSafetyScore = Math.min(74, finalSafetyScore); // Medium Risk (Safety: 60-74, Risk: 26-40)
     }
 
-    // Clamping boundaries: Risk Score between 1 and 95
-    calculatedRisk = Math.max(1, Math.min(95, calculatedRisk));
-    const finalRiskScore = Math.round(calculatedRisk);
-
-    // Safety Score (100 - riskScore) for backward compatibility
-    const finalSafetyScore = Math.max(5, Math.min(99, 100 - finalRiskScore));
+    // Bounds: Safety Score [5, 99], Risk Score [1, 95]
+    finalSafetyScore = Math.max(5, Math.min(99, Math.round(finalSafetyScore)));
+    const finalRiskScore = Math.max(1, Math.min(95, 100 - finalSafetyScore));
 
     // Risk Classification & Color Palettes
     let riskLevel = 'LOW';
-    let riskLabel = 'Low Risk';
+    let riskLabel = 'Low Detected Risk';
     let riskColor = '#16a34a'; // Emerald Green
     let summaryText = 'Strong security posture. Encrypted connection and standard domain conventions followed.';
     let extensionStatus = 'COMPLETE';
@@ -1342,25 +1408,37 @@
       summaryText = 'Deceptive patterns or brand impersonation detected. Do not enter credentials or submit sensitive data.';
       extensionStatus = 'HIGH_RISK';
     } else if (finalRiskScore >= 40) {
-      riskLevel = 'MEDIUM'; // Compatible with UI and tests
+      riskLevel = 'MEDIUM';
       riskLabel = 'Suspicious';
       riskColor = '#ea580c'; // Deep Orange
       summaryText = 'Suspicious combination of security anomalies detected. Verify the website before interacting.';
       extensionStatus = 'SUSPICIOUS';
     } else if (finalRiskScore >= 20 || isHttp) {
       riskLevel = 'MEDIUM';
-      riskLabel = 'Medium Risk';
+      riskLabel = 'Caution';
       riskColor = '#d97706'; // Amber
-      summaryText = 'Cautionary security signals detected. Verify the website identity and ensure connection safety.';
+      summaryText = 'Cautionary security signals detected. Verify website identity and ensure connection safety.';
       extensionStatus = 'COMPLETE';
     } else {
-      // 0-19: Low Risk
+      // 0 - 19 Risk (Safety >= 81)
       if (isTopAuthority || matchedOfficialBrand) {
         summaryText = `Authenticated official website (${matchedOfficialBrand ? matchedOfficialBrand.displayName : hierarchy.registrableDomain}). High domain authority and secure transport verified.`;
       } else {
         summaryText = 'Standard domain conventions and encrypted connection verified. No threat patterns detected.';
       }
       extensionStatus = 'COMPLETE';
+    }
+
+    // Clear Analysis State (PART 4)
+    let analysisState = 'COMPLETE';
+    if (finalRiskScore >= 60 || isConfirmedMalicious || hasCorrelatedPhishing) {
+      analysisState = 'KNOWN_THREAT';
+    } else if (reputationStatus === 'UNAVAILABLE') {
+      analysisState = 'REPUTATION_UNAVAILABLE';
+    } else if (!domAvailable && (reputationStatus === 'NOT_CONFIGURED' || reputationStatus === 'UNAVAILABLE') && !isTopAuthority) {
+      analysisState = 'INSUFFICIENT_EVIDENCE';
+    } else if (reputationStatus === 'NOT_CONFIGURED' && !isTopAuthority && !matchedOfficialBrand) {
+      analysisState = 'PARTIALLY_ANALYZED';
     }
 
     if (recommendations.length === 0) {
@@ -1379,6 +1457,8 @@
     if (!domAvailable && (reputationStatus === 'NOT_CONFIGURED' || reputationStatus === 'UNAVAILABLE') && !isTopAuthority) {
       confidence = 'MODERATE';
     } else if (!domAvailable && findings.length === 0 && !isTopAuthority) {
+      confidence = 'MODERATE';
+    } else if (reputationStatus === 'UNAVAILABLE') {
       confidence = 'MODERATE';
     }
 
@@ -1485,6 +1565,44 @@
       reason: 'Direct WHOIS protocol port 43 queries are inaccessible without an external server'
     });
 
+    const checksFailed = [];
+    if (reputationStatus === 'UNAVAILABLE') {
+      checksFailed.push({
+        name: `External Threat Intelligence (${reputationProviderName})`,
+        error: options && options.reputationResult && options.reputationResult.message
+          ? options.reputationResult.message
+          : 'Service query timed out or connection offline'
+      });
+    }
+
+    const totalPossibleChecks = checksCompleted.length + checksUnavailable.length + checksFailed.length;
+    const coveragePercentage = totalPossibleChecks > 0 ? Math.round((checksCompleted.length / totalPossibleChecks) * 100) : 50;
+
+    const coverage = {
+      summary: coverageSummary,
+      score: coveragePercentage,
+      checksCompletedCount: checksCompleted.length,
+      checksUnavailableCount: checksUnavailable.length,
+      checksFailedCount: checksFailed.length,
+      layers: layersRan
+    };
+
+    const scoringBreakdown = {
+      threatIntelligence: { points: threatIntelPoints, max: 30, detail: threatIntelDetail },
+      urlIndicators: { points: urlPoints, max: 20, detail: `${urlDeductions} pts deducted for structural anomalies` },
+      phishingAnalysis: { points: phishingPoints, max: 20, detail: `${phishingDeductions} pts deducted for lookalike/impersonation` },
+      transportSecurity: { points: transportPoints, max: 10, detail: isHttps ? 'SSL/TLS transport encryption active' : 'Unencrypted plaintext HTTP' },
+      pageBehavior: { points: pagePoints, max: 15, detail: pageDetail },
+      evidenceQuality: { points: qualityPoints, max: 5, detail: `Confidence: ${confidence}` },
+      total: finalSafetyScore
+    };
+
+    const dataFreshness = {
+      timestamp: Date.now(),
+      source: isTopAuthority ? 'Verified Global Authority Registry' : (reputationStatus === 'NO_KNOWN_MATCH' ? 'Live Safe Browsing Query' : 'Client-Side Heuristic Engine'),
+      isFresh: true
+    };
+
     const speechText = generateSpeechReport({
       score: finalSafetyScore,
       riskScore: finalRiskScore,
@@ -1507,14 +1625,14 @@
       riskScore: finalRiskScore,          // Calibrated normalized Risk score (0-100)
       threatPoints: threatPoints,        // Raw threat points sum
       status: extensionStatus,            // Fail-safe state
+      analysisState: analysisState,       // COMPLETE, INSUFFICIENT_EVIDENCE, PARTIALLY_ANALYZED, REPUTATION_UNAVAILABLE, KNOWN_THREAT
       riskLevel: riskLevel,              // LOW, MEDIUM, HIGH
-      riskLabel: riskLabel,              // Low Risk, Medium Risk, Suspicious, High Risk, Critical Risk
+      riskLabel: riskLabel,              // Low Detected Risk, Caution, Suspicious, High Risk, Critical Risk
       riskColor: riskColor,
       confidence: confidence,            // HIGH, MODERATE, LOW
-      coverage: {
-        summary: coverageSummary,
-        layers: layersRan
-      },
+      coverage: coverage,
+      scoringBreakdown: scoringBreakdown,
+      dataFreshness: dataFreshness,
       reputationStatus: reputationStatus, // CONFIRMED_THREAT, NO_KNOWN_MATCH, UNAVAILABLE, NOT_CONFIGURED
       limitations: limitations,
       summaryText: summaryText,
@@ -1523,6 +1641,7 @@
       recommendations: uniqueRecommendations,
       checksCompleted: checksCompleted,
       checksUnavailable: checksUnavailable,
+      checksFailed: checksFailed,
       reputation: options ? (options.reputationResult || null) : null,
       speechText: speechText,
       disclaimer: 'A low detected risk does not guarantee a website is safe. Always verify the address bar.',

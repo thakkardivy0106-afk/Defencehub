@@ -28,17 +28,66 @@
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
           </svg>
         </button>
+        <button id="menu-btn" class="menu-btn" title="Open Security Navigation Menu" aria-label="Security Menu" aria-expanded="false" aria-haspopup="true">
+          <svg class="menu-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+          <span class="menu-btn-text">Menu</span>
+        </button>
       </div>
     </header>
 
-    <!-- Navigation Tabs Bar -->
-    <nav class="nav-tabs" role="tablist">
-      <button class="nav-tab active" data-tab="tab-scan" role="tab" aria-selected="true">🛡️ Safety</button>
-      <button class="nav-tab" data-tab="tab-dna" role="tab" aria-selected="false">🧬 DNA</button>
-      <button class="nav-tab" data-tab="tab-password" role="tab" aria-selected="false">🔑 Pass</button>
-      <button class="nav-tab" data-tab="tab-phone" role="tab" aria-selected="false">📞 Phone</button>
-      <button class="nav-tab" data-tab="tab-settings" role="tab" aria-selected="false">⚙️ Settings</button>
-    </nav>
+    <!-- Unified Single Navigation Menu Popover -->
+    <div id="nav-menu-popover" class="menu-popover hidden" role="menu" aria-label="Security Navigation">
+      <div class="menu-popover-header">
+        <span class="menu-popover-title">DEFENCEHUB SUITE</span>
+        <button id="close-menu-popover-btn" class="menu-close-icon" aria-label="Close navigation menu">✕</button>
+      </div>
+      <div class="menu-items" role="none">
+        <button class="menu-item active" data-tab="tab-scan" role="menuitem" tabindex="0">
+          <span class="menu-item-icon">🛡️</span>
+          <div class="menu-item-info">
+            <span class="menu-item-label">Website Safety Dashboard</span>
+            <span class="menu-item-sub">Live risk scoring & telemetry</span>
+          </div>
+          <span class="menu-active-dot">●</span>
+        </button>
+        <button class="menu-item" data-tab="tab-dna" role="menuitem" tabindex="0">
+          <span class="menu-item-icon">🧬</span>
+          <div class="menu-item-info">
+            <span class="menu-item-label">Website DNA</span>
+            <span class="menu-item-sub">Fingerprints & drift detection</span>
+          </div>
+          <span class="menu-active-dot">●</span>
+        </button>
+        <button class="menu-item" data-tab="tab-password" role="menuitem" tabindex="0">
+          <span class="menu-item-icon">🔑</span>
+          <div class="menu-item-info">
+            <span class="menu-item-label">Password Security & Vault</span>
+            <span class="menu-item-sub">Web Crypto generator & vault</span>
+          </div>
+          <span class="menu-active-dot">●</span>
+        </button>
+        <button class="menu-item" data-tab="tab-phone" role="menuitem" tabindex="0">
+          <span class="menu-item-info">📞</span>
+          <div class="menu-item-info">
+            <span class="menu-item-label">Phone Security</span>
+            <span class="menu-item-sub">E.164 telephony validation</span>
+          </div>
+          <span class="menu-active-dot">●</span>
+        </button>
+        <button class="menu-item" data-tab="tab-settings" role="menuitem" tabindex="0">
+          <span class="menu-item-icon">⚙️</span>
+          <div class="menu-item-info">
+            <span class="menu-item-label">Settings & Threat Feeds</span>
+            <span class="menu-item-sub">API keys & security shields</span>
+          </div>
+          <span class="menu-active-dot">●</span>
+        </button>
+      </div>
+    </div>
 
     <!-- Custom URL Input Drawer -->
     <div id="custom-url-drawer" class="custom-drawer hidden">
@@ -278,6 +327,9 @@
     <!-- VIEW 2: WEBSITE DNA (Change Detection)         -->
     <!-- ============================================== -->
     <div id="view-dna" class="tab-view hidden">
+      <div class="subview-nav">
+        <button class="back-nav-btn" data-tab="tab-scan" title="Back to Safety Dashboard">← Back to Safety Dashboard</button>
+      </div>
       <div class="card dna-card">
         <div class="section-header">
           <h2 class="section-title">Website DNA Profile</h2>
@@ -319,6 +371,9 @@
     <!-- VIEW 3: PASSWORD TOOLS (Web Crypto API)        -->
     <!-- ============================================== -->
     <div id="view-password" class="tab-view hidden">
+      <div class="subview-nav">
+        <button class="back-nav-btn" data-tab="tab-scan" title="Back to Safety Dashboard">← Back to Safety Dashboard</button>
+      </div>
       <div class="card password-box">
         <div class="section-header">
           <h2 class="section-title">Password Security Tools</h2>
@@ -353,6 +408,59 @@
           </div>
           <span id="pass-strength-label" class="strength-label">Enter password</span>
         </div>
+
+        <!-- Master-Key Protected Encrypted Password Vault -->
+        <div class="card vault-card" id="vault-section" style="margin-top:14px; border-top:1px solid var(--border-color); padding-top:12px; background:rgba(15,23,42,0.4);">
+          <div class="section-header">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:15px;">🔐</span>
+              <h2 class="section-title">Encrypted Password Vault</h2>
+            </div>
+            <span id="vault-status-badge" class="badge badge-med">Locked</span>
+          </div>
+          <p style="font-size:11px; color:var(--text-muted); line-height:1.35; margin-bottom:8px;">
+            Zero-knowledge vault encrypted locally with Web Crypto API (PBKDF2-SHA256, 100,000 rounds + AES-256-GCM). Passwords never leave your device.
+          </p>
+
+          <!-- Vault Locked State -->
+          <div id="vault-locked-state" class="vault-panel">
+            <div class="custom-input-group">
+              <input type="password" id="vault-master-pass-input" class="text-input" placeholder="Enter Master Password..." autocomplete="off" />
+              <button id="vault-unlock-btn" class="btn btn-primary">Unlock</button>
+            </div>
+            <p id="vault-auth-hint" style="font-size:10px; color:var(--text-secondary); margin-top:4px;">
+              Initializes a new master key on first unlock. Kept exclusively in volatile memory.
+            </p>
+          </div>
+
+          <!-- Vault Unlocked State -->
+          <div id="vault-unlocked-state" class="vault-panel hidden">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span id="vault-entry-count" style="font-size:11px; color:var(--text-secondary);">0 Credentials Stored</span>
+              <button id="vault-lock-btn" class="btn btn-sm btn-secondary">🔒 Lock Vault</button>
+            </div>
+
+            <!-- Add Entry Form -->
+            <div class="vault-add-box" style="background:rgba(15,23,42,0.7); padding:8px; border-radius:6px; border:1px solid var(--border-color); margin-bottom:8px;">
+              <strong style="font-size:11px; color:#fff; display:block; margin-bottom:6px;">Save Credential to Vault</strong>
+              <div style="display:flex; flex-direction:column; gap:5px;">
+                <input type="text" id="vault-new-domain" class="text-input" placeholder="Website / Domain (e.g. paypal.com)" style="padding:5px 8px; font-size:11px;" />
+                <input type="text" id="vault-new-user" class="text-input" placeholder="Username / Email" style="padding:5px 8px; font-size:11px;" />
+                <div style="display:flex; gap:4px;">
+                  <input type="password" id="vault-new-pass" class="text-input" placeholder="Password" style="flex:1; padding:5px 8px; font-size:11px;" />
+                  <button id="vault-use-gen-btn" class="btn btn-sm btn-secondary" title="Use generated password" style="white-space:nowrap; font-size:10.5px;">Use Gen</button>
+                </div>
+                <button id="vault-save-entry-btn" class="btn btn-sm btn-primary" style="margin-top:2px;">Encrypt & Save</button>
+              </div>
+            </div>
+
+            <!-- Stored Items List -->
+            <div id="vault-empty-notice" class="history-empty" style="padding:8px 0;">
+              <span>No credentials in vault yet.</span>
+            </div>
+            <ul id="vault-items-list" class="vault-items-list hidden" style="list-style:none; padding:0; margin:0; max-height:160px; overflow-y:auto;"></ul>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -360,6 +468,9 @@
     <!-- VIEW 4: PHONE NUMBER CHECKER                   -->
     <!-- ============================================== -->
     <div id="view-phone" class="tab-view hidden">
+      <div class="subview-nav">
+        <button class="back-nav-btn" data-tab="tab-scan" title="Back to Safety Dashboard">← Back to Safety Dashboard</button>
+      </div>
       <div class="card phone-box">
         <div class="section-header">
           <h2 class="section-title">Phone Number Format Validator</h2>
@@ -393,6 +504,9 @@
     <!-- VIEW 5: SETTINGS & PRIVACY                     -->
     <!-- ============================================== -->
     <div id="view-settings" class="tab-view hidden">
+      <div class="subview-nav">
+        <button class="back-nav-btn" data-tab="tab-scan" title="Back to Safety Dashboard">← Back to Safety Dashboard</button>
+      </div>
       <div class="card settings-list">
         <div class="section-header">
           <h2 class="section-title">Settings & Threat Intelligence</h2>

@@ -392,6 +392,34 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
       return true;
     }
 
+    // Explicit Re-analysis requested by user (Bypasses cache, refreshes reputation & DOM)
+    if (message.type === 'REANALYZE_TAB') {
+      const tabId = message.tabId || currentActiveTabId;
+      const targetUrl = message.url;
+
+      if (!tabId || !targetUrl) {
+        sendResponse({ status: 'error', message: 'No valid tab or URL specified' });
+        return true;
+      }
+
+      try {
+        const parsed = new URL(targetUrl);
+        reputationCache.delete(parsed.hostname);
+      } catch (e) {}
+
+      tabScanCache.delete(tabId);
+
+      analyzeTab(tabId, targetUrl, 'reanalyze_explicit', true)
+        .then((freshScan) => {
+          sendResponse({ status: 'ok', scan: freshScan });
+        })
+        .catch((err) => {
+          sendResponse({ status: 'error', message: err.message });
+        });
+
+      return true;
+    }
+
     // Replay report button clicked
     if (message.type === 'REPLAY_REPORT') {
       const tabId = message.tabId || currentActiveTabId;

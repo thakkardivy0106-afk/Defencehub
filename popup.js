@@ -5,14 +5,43 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Navigation Tabs
-  const navTabs = document.querySelectorAll('.nav-tab');
+  // Navigation & Menu Elements
   const tabViews = {
     'tab-scan': document.getElementById('view-scan'),
     'tab-dna': document.getElementById('view-dna'),
     'tab-password': document.getElementById('view-password'),
     'tab-phone': document.getElementById('view-phone'),
     'tab-settings': document.getElementById('view-settings')
+  };
+  const menuBtn = document.getElementById('menu-btn');
+  const menuPopover = document.getElementById('nav-menu-popover');
+  const closeMenuPopoverBtn = document.getElementById('close-menu-popover-btn');
+  const menuItems = document.querySelectorAll('.menu-item');
+  const backNavButtons = document.querySelectorAll('.back-nav-btn');
+
+  // Master-Key Encrypted Password Vault Elements
+  const vaultStatusBadge = document.getElementById('vault-status-badge');
+  const vaultLockedState = document.getElementById('vault-locked-state');
+  const vaultUnlockedState = document.getElementById('vault-unlocked-state');
+  const vaultMasterPassInput = document.getElementById('vault-master-pass-input');
+  const vaultUnlockBtn = document.getElementById('vault-unlock-btn');
+  const vaultLockBtn = document.getElementById('vault-lock-btn');
+  const vaultAuthHint = document.getElementById('vault-auth-hint');
+  const vaultEntryCount = document.getElementById('vault-entry-count');
+  const vaultNewDomain = document.getElementById('vault-new-domain');
+  const vaultNewUser = document.getElementById('vault-new-user');
+  const vaultNewPass = document.getElementById('vault-new-pass');
+  const vaultUseGenBtn = document.getElementById('vault-use-gen-btn');
+  const vaultSaveEntryBtn = document.getElementById('vault-save-entry-btn');
+  const vaultEmptyNotice = document.getElementById('vault-empty-notice');
+  const vaultItemsList = document.getElementById('vault-items-list');
+
+  const VAULT_STORAGE_KEY = 'defencehub_encrypted_vault';
+  let vaultState = {
+    unlocked: false,
+    key: null,
+    salt: null,
+    credentials: []
   };
 
   // Scan & Overview Elements
@@ -167,32 +196,119 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // ----------------------------------------------------
-  // Tab Navigation Handling
+  // Unified Menu Navigation & Popover Handling
   // ----------------------------------------------------
-  navTabs.forEach(tabBtn => {
-    tabBtn.addEventListener('click', () => {
-      const targetId = tabBtn.getAttribute('data-tab');
-      navTabs.forEach(btn => {
-        btn.classList.remove('active');
-        btn.setAttribute('aria-selected', 'false');
-      });
-      tabBtn.classList.add('active');
-      tabBtn.setAttribute('aria-selected', 'true');
+  function switchView(targetId) {
+    if (!tabViews[targetId]) return;
 
-      Object.keys(tabViews).forEach(id => {
-        if (tabViews[id]) {
-          if (id === targetId) {
-            tabViews[id].classList.remove('hidden');
-          } else {
-            tabViews[id].classList.add('hidden');
-          }
-        }
-      });
-
-      if (targetId === 'tab-dna' && latestAnalysisResult) {
-        renderWebsiteDna(latestAnalysisResult.hostname);
+    // 1. Update menu item selection states
+    const items = document.querySelectorAll('.menu-item');
+    items.forEach(item => {
+      if (item.getAttribute('data-tab') === targetId) {
+        item.classList.add('active');
+        item.setAttribute('aria-selected', 'true');
+      } else {
+        item.classList.remove('active');
+        item.setAttribute('aria-selected', 'false');
       }
     });
+
+    // 2. Toggle active tab views
+    Object.keys(tabViews).forEach(id => {
+      if (tabViews[id]) {
+        if (id === targetId) {
+          tabViews[id].classList.remove('hidden');
+        } else {
+          tabViews[id].classList.add('hidden');
+        }
+      }
+    });
+
+    // 3. Close popover after navigation
+    closeMenuPopover();
+
+    // 4. Trigger view-specific data refresh
+    if (targetId === 'tab-dna' && latestAnalysisResult) {
+      renderWebsiteDna(latestAnalysisResult.hostname);
+    }
+  }
+
+  function openMenuPopover() {
+    if (menuPopover) {
+      menuPopover.classList.remove('hidden');
+      if (menuBtn) menuBtn.setAttribute('aria-expanded', 'true');
+      const activeItem = menuPopover.querySelector('.menu-item.active') || menuPopover.querySelector('.menu-item');
+      if (activeItem) activeItem.focus();
+    }
+  }
+
+  function closeMenuPopover() {
+    if (menuPopover) {
+      menuPopover.classList.add('hidden');
+      if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  if (menuBtn) {
+    menuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (menuPopover && menuPopover.classList.contains('hidden')) {
+        openMenuPopover();
+      } else {
+        closeMenuPopover();
+      }
+    });
+  }
+
+  if (closeMenuPopoverBtn) {
+    closeMenuPopoverBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeMenuPopover();
+    });
+  }
+
+  menuItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const target = item.getAttribute('data-tab');
+      if (target) switchView(target);
+    });
+  });
+
+  backNavButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-tab') || 'tab-scan';
+      switchView(target);
+    });
+  });
+
+  // Close menu popover when clicking outside
+  document.addEventListener('click', (e) => {
+    if (menuPopover && !menuPopover.classList.contains('hidden')) {
+      if (!menuPopover.contains(e.target) && e.target !== menuBtn && !menuBtn?.contains(e.target)) {
+        closeMenuPopover();
+      }
+    }
+  });
+
+  // Keyboard navigation for Menu Popover (Escape to close, Arrow keys to traverse)
+  document.addEventListener('keydown', (e) => {
+    if (menuPopover && !menuPopover.classList.contains('hidden')) {
+      if (e.key === 'Escape') {
+        closeMenuPopover();
+        if (menuBtn) menuBtn.focus();
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const items = Array.from(menuPopover.querySelectorAll('.menu-item'));
+        const currentIndex = items.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown') {
+          const nextIndex = (currentIndex + 1) % items.length;
+          items[nextIndex].focus();
+        } else {
+          const prevIndex = (currentIndex - 1 + items.length) % items.length;
+          items[prevIndex].focus();
+        }
+      }
+    }
   });
 
   // ----------------------------------------------------
@@ -893,6 +1009,260 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ----------------------------------------------------
+  // Master-Key Protected Password Vault (Web Crypto API)
+  // Zero-Knowledge PBKDF2 (100,000 rounds) + AES-GCM 256
+  // ----------------------------------------------------
+  function bufferToBase64(buf) {
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  function base64ToBuffer(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  async function deriveMasterKey(password, salt) {
+    const enc = new TextEncoder();
+    const keyMaterial = await window.crypto.subtle.importKey(
+      'raw',
+      enc.encode(password),
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+    );
+
+    return window.crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: 100000,
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  async function encryptVault(credentials, key, salt) {
+    const enc = new TextEncoder();
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const plaintext = enc.encode(JSON.stringify(credentials));
+
+    const ciphertext = await window.crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: iv },
+      key,
+      plaintext
+    );
+
+    return {
+      salt: bufferToBase64(salt),
+      iv: bufferToBase64(iv),
+      ciphertext: bufferToBase64(ciphertext)
+    };
+  }
+
+  async function decryptVault(encryptedRecord, key) {
+    const dec = new TextDecoder();
+    const iv = base64ToBuffer(encryptedRecord.iv);
+    const ciphertext = base64ToBuffer(encryptedRecord.ciphertext);
+
+    const decrypted = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv },
+      key,
+      ciphertext
+    );
+
+    return JSON.parse(dec.decode(decrypted));
+  }
+
+  function renderVaultEntries() {
+    if (!vaultItemsList || !vaultEntryCount || !vaultEmptyNotice) return;
+
+    vaultEntryCount.textContent = `${vaultState.credentials.length} ${vaultState.credentials.length === 1 ? 'Credential' : 'Credentials'} Stored`;
+
+    if (vaultState.credentials.length === 0) {
+      vaultEmptyNotice.classList.remove('hidden');
+      vaultItemsList.classList.add('hidden');
+      vaultItemsList.innerHTML = '';
+      return;
+    }
+
+    vaultEmptyNotice.classList.add('hidden');
+    vaultItemsList.classList.remove('hidden');
+    vaultItemsList.innerHTML = '';
+
+    vaultState.credentials.forEach((entry, idx) => {
+      const row = document.createElement('li');
+      row.className = 'vault-item-row';
+
+      const info = document.createElement('div');
+      info.className = 'vault-item-info';
+
+      const domSpan = document.createElement('span');
+      domSpan.className = 'vault-item-domain';
+      domSpan.textContent = entry.domain;
+
+      const userSpan = document.createElement('span');
+      userSpan.className = 'vault-item-user';
+      userSpan.textContent = `${entry.user || 'No username'} • ••••••••`;
+
+      info.appendChild(domSpan);
+      info.appendChild(userSpan);
+
+      const actions = document.createElement('div');
+      actions.className = 'vault-item-actions';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'btn btn-sm btn-secondary';
+      copyBtn.textContent = 'Copy';
+      copyBtn.title = 'Copy password to clipboard';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(entry.pass).then(() => {
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+        });
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-sm btn-secondary danger-link';
+      delBtn.textContent = '✕';
+      delBtn.title = 'Delete credential';
+      delBtn.addEventListener('click', async () => {
+        vaultState.credentials.splice(idx, 1);
+        const encrypted = await encryptVault(vaultState.credentials, vaultState.key, vaultState.salt);
+        storage.set(VAULT_STORAGE_KEY, encrypted, () => {
+          renderVaultEntries();
+        });
+      });
+
+      actions.appendChild(copyBtn);
+      actions.appendChild(delBtn);
+
+      row.appendChild(info);
+      row.appendChild(actions);
+
+      vaultItemsList.appendChild(row);
+    });
+  }
+
+  function renderUnlockedVault() {
+    vaultLockedState.classList.add('hidden');
+    vaultUnlockedState.classList.remove('hidden');
+    vaultStatusBadge.textContent = 'Unlocked';
+    vaultStatusBadge.className = 'badge badge-low';
+    renderVaultEntries();
+  }
+
+  if (vaultUnlockBtn) {
+    vaultUnlockBtn.addEventListener('click', async () => {
+      const password = (vaultMasterPassInput.value || '').trim();
+      if (!password || password.length < 4) {
+        vaultAuthHint.textContent = 'Master password must be at least 4 characters.';
+        vaultAuthHint.style.color = '#f87171';
+        return;
+      }
+
+      storage.get(VAULT_STORAGE_KEY, async (record) => {
+        try {
+          if (!record || !record.ciphertext) {
+            // First time initialization: generate salt, derive key, store empty record
+            const salt = window.crypto.getRandomValues(new Uint8Array(16));
+            const key = await deriveMasterKey(password, salt);
+            const initialRecord = await encryptVault([], key, salt);
+            storage.set(VAULT_STORAGE_KEY, initialRecord, () => {
+              vaultState.key = key;
+              vaultState.salt = salt;
+              vaultState.credentials = [];
+              vaultState.unlocked = true;
+              renderUnlockedVault();
+            });
+          } else {
+            // Existing vault: derive key and decrypt
+            const salt = base64ToBuffer(record.salt);
+            const key = await deriveMasterKey(password, salt);
+            const creds = await decryptVault(record, key);
+            vaultState.key = key;
+            vaultState.salt = salt;
+            vaultState.credentials = creds;
+            vaultState.unlocked = true;
+            renderUnlockedVault();
+          }
+        } catch (err) {
+          vaultAuthHint.textContent = 'Incorrect master password or corrupted vault record.';
+          vaultAuthHint.style.color = '#f87171';
+        }
+      });
+    });
+  }
+
+  if (vaultLockBtn) {
+    vaultLockBtn.addEventListener('click', () => {
+      vaultState.key = null;
+      vaultState.salt = null;
+      vaultState.credentials = [];
+      vaultState.unlocked = false;
+      vaultMasterPassInput.value = '';
+      vaultLockedState.classList.remove('hidden');
+      vaultUnlockedState.classList.add('hidden');
+      vaultStatusBadge.textContent = 'Locked';
+      vaultStatusBadge.className = 'badge badge-med';
+      vaultAuthHint.textContent = 'Vault locked. Enter master password to access credentials.';
+      vaultAuthHint.style.color = 'var(--text-secondary)';
+    });
+  }
+
+  if (vaultUseGenBtn) {
+    vaultUseGenBtn.addEventListener('click', () => {
+      if (!genPassOutput.value) {
+        generateSecurePassword();
+      }
+      if (vaultNewPass) {
+        vaultNewPass.value = genPassOutput.value;
+      }
+    });
+  }
+
+  if (vaultSaveEntryBtn) {
+    vaultSaveEntryBtn.addEventListener('click', async () => {
+      const domain = (vaultNewDomain.value || '').trim();
+      const user = (vaultNewUser.value || '').trim();
+      const pass = vaultNewPass.value;
+
+      if (!domain || !pass) {
+        alert('Please provide at least a website/domain and a password.');
+        return;
+      }
+
+      const newEntry = {
+        domain: domain,
+        user: user,
+        pass: pass,
+        timestamp: Date.now()
+      };
+
+      vaultState.credentials.unshift(newEntry);
+      const encrypted = await encryptVault(vaultState.credentials, vaultState.key, vaultState.salt);
+      storage.set(VAULT_STORAGE_KEY, encrypted, () => {
+        vaultNewDomain.value = '';
+        vaultNewUser.value = '';
+        vaultNewPass.value = '';
+        renderVaultEntries();
+      });
+    });
+  }
+
+  // ----------------------------------------------------
   // Phone Number Checker
   // ----------------------------------------------------
   checkPhoneBtn.addEventListener('click', () => {
@@ -1023,11 +1393,130 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ----------------------------------------------------
-  // Drawer & Presets
+  // Re-Analyze Active Website Execution (PART 6)
+  // Bypasses stale cache, queries live DOM, protects against concurrent requests
   // ----------------------------------------------------
-  scanBtn.addEventListener('click', () => {
-    initActiveTab();
-  });
+  let isReanalyzing = false;
+
+  async function reanalyzeActiveWebsite() {
+    if (isReanalyzing) {
+      console.warn('[DefenceHub] Re-analysis already running. Duplicate request prevented.');
+      return;
+    }
+
+    isReanalyzing = true;
+    scanBtn.disabled = true;
+    scanBtnText.textContent = 'Re-analyzing Active Website...';
+    hideError();
+
+    loadingState.classList.remove('hidden');
+    resultsSection.classList.add('hidden');
+
+    try {
+      // 1. Query active tab directly
+      const tab = await new Promise((resolve) => queryActiveTab(resolve));
+      if (!tab || (!tab.url && !tab.pendingUrl)) {
+        showError('No active browser tab found to re-analyze.');
+        return;
+      }
+
+      const rawUrl = tab.url || tab.pendingUrl;
+      const lower = rawUrl.toLowerCase().trim();
+
+      if (
+        lower.startsWith('chrome://') ||
+        lower.startsWith('chrome-extension://') ||
+        lower.startsWith('edge://') ||
+        lower.startsWith('about:') ||
+        lower.startsWith('view-source:') ||
+        lower.startsWith('devtools:')
+      ) {
+        showUnsupported(`System Page: "${rawUrl.split('/')[2] || 'browser'}" cannot be scanned.`);
+        return;
+      }
+
+      if (!lower.startsWith('http://') && !lower.startsWith('https://')) {
+        showError(`Unsupported protocol scheme: ${rawUrl}`);
+        return;
+      }
+
+      currentActiveUrl = rawUrl;
+      currentActiveTab = tab;
+      const targetTabId = tab.id;
+      const targetUrl = rawUrl;
+
+      // Update hostname header immediately
+      try {
+        const parsed = new URL(rawUrl);
+        tabHostnameEl.textContent = parsed.hostname;
+        tabHostnameEl.title = parsed.hostname;
+        if (parsed.protocol === 'http:') {
+          tabProtocolBadgeEl.textContent = 'HTTP';
+          tabProtocolBadgeEl.className = 'badge badge-risk badge-med';
+        } else {
+          tabProtocolBadgeEl.textContent = 'HTTPS';
+          tabProtocolBadgeEl.className = 'badge badge-protocol';
+        }
+      } catch (e) {}
+
+      // 2. Query live DOM telemetry from the active tab
+      const pageDomData = await new Promise((resolve) => inspectPageDom(tab, resolve));
+
+      // 3. Request fresh analysis from background worker (bypasses reputation cache)
+      let freshResult = null;
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        freshResult = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({
+            type: 'REANALYZE_TAB',
+            tabId: targetTabId,
+            url: targetUrl
+          }, (resp) => {
+            if (chrome.runtime.lastError || !resp || resp.status !== 'ok' || !resp.scan) {
+              resolve(null);
+            } else {
+              resolve(resp.scan);
+            }
+          });
+        });
+      }
+
+      // Fallback: If background service worker was inactive or unavailable, compute locally
+      if (!freshResult) {
+        freshResult = DefenceHubEngine.analyzeUrl(targetUrl, pageDomData);
+      }
+
+      // 4. Guard against tab/URL navigation during asynchronous analysis
+      const currentTabNow = await new Promise((resolve) => queryActiveTab(resolve));
+      if (currentTabNow && currentTabNow.id === targetTabId && (currentTabNow.url || currentTabNow.pendingUrl) !== targetUrl) {
+        console.warn('[DefenceHub] Tab navigated during analysis. Discarding stale result.');
+        return;
+      }
+
+      // 5. Render results & update state
+      if (!freshResult || !freshResult.valid) {
+        showError(freshResult && freshResult.error ? freshResult.error : 'Failed to re-analyze website.');
+        return;
+      }
+
+      latestAnalysisResult = freshResult;
+      renderResults(freshResult);
+      saveScanToHistory(freshResult);
+      updateWebsiteDna(freshResult);
+
+    } catch (err) {
+      showError(`Re-analysis error: ${err.message}`);
+    } finally {
+      isReanalyzing = false;
+      loadingState.classList.add('hidden');
+      if (latestAnalysisResult) {
+        resultsSection.classList.remove('hidden');
+      }
+      scanBtn.disabled = false;
+      scanBtnText.textContent = 'Re-analyze Active Website';
+    }
+  }
+
+  scanBtn.addEventListener('click', reanalyzeActiveWebsite);
 
   toggleCustomBtn.addEventListener('click', () => {
     customDrawer.classList.toggle('hidden');

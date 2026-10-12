@@ -102,6 +102,20 @@
         </div>
       </div>
 
+      <!-- Strict Security Armor Status Card -->
+      <div class="card strict-armor-card" id="strict-armor-card">
+        <div class="strict-armor-wrap">
+          <div class="strict-armor-icon-box">🛡️</div>
+          <div class="strict-armor-info">
+            <div class="strict-armor-title-row">
+              <span class="strict-armor-title">Strict Security Shield Active</span>
+              <span class="badge badge-low" style="font-size: 9.5px; padding: 1px 6px;">Maximum Armor</span>
+            </div>
+            <p class="strict-armor-desc">Real-time DOM credential lock, payment harvesting blocker, and scareware sentinel active.</p>
+          </div>
+        </div>
+      </div>
+
       <!-- Active Tab Card -->
       <div id="active-tab-card" class="card active-tab-card">
         <div class="tab-info-row">
@@ -383,6 +397,22 @@
         <div class="section-header">
           <h2 class="section-title">Settings & Threat Intelligence</h2>
           <span class="badge badge-low">Configurable</span>
+        </div>
+
+        <!-- Strict Credential Shield Setting -->
+        <div class="settings-group" style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="padding-right: 12px;">
+              <label class="tab-label" style="font-weight: 700; color: #fff;">Strict Credential Shield</label>
+              <p style="font-size: 11px; color: var(--text-secondary); line-height: 1.35; margin-top: 2px;">
+                Actively intercepts password and credit card entry on unsafe or lookalike sites to prevent credential theft.
+              </p>
+            </div>
+            <label class="switch" style="flex-shrink: 0;">
+              <input type="checkbox" id="strict-shield-toggle" checked />
+              <span class="slider round"></span>
+            </label>
+          </div>
         </div>
 
         <!-- Google Safe Browsing API Key Integration -->

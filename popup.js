@@ -1155,6 +1155,27 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // 4b. Wire Strict Credential Shield Toggle
+    const strictShieldToggle = document.getElementById('strict-shield-toggle');
+    if (strictShieldToggle) {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(['defencehub_settings'], (res) => {
+          if (res && res.defencehub_settings) {
+            strictShieldToggle.checked = res.defencehub_settings.strictShieldEnabled !== false;
+          }
+        });
+      }
+
+      strictShieldToggle.addEventListener('change', () => {
+        const enabled = strictShieldToggle.checked;
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ type: 'TOGGLE_STRICT_SHIELD', enabled }, () => {
+            if (chrome.runtime.lastError) {}
+          });
+        }
+      });
+    }
+
     // 5. Listen for Tab Analysis updates pushed from background
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
       chrome.runtime.onMessage.addListener((message) => {

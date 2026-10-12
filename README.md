@@ -24,13 +24,21 @@
    - Built-in **Replay Report** and **Mute / Unmute** controls persisted across sessions.
    - Intelligent navigation guard prevents redundant announcements for identical URLs.
 
-3. **In-Page Floating Security Alert Overlay (`content.js`)**:
+3. **Strict In-Page Credential Interceptor & Security Alert Overlay (`content.js`)**:
    - Injects a responsive, dismissible floating alert banner directly onto the active webpage:
      - **Red Banner**: Critical / High Risk warnings (lookalikes, credential harvesting, IP hosts).
      - **Orange Banner**: Cautionary warnings (unencrypted HTTP, suspicious patterns).
      - **Green Banner**: Verified trust signals on clean, authoritative sites.
+   - **Active Strict Credential & Sensitive Form Guard**:
+     - Actively locks credential entry on high-risk or lookalike websites and plaintext HTTP forms.
+     - Blurs inputs and triggers the **Strict Shield Interceptor Modal** upon focus to prevent credential harvesting.
+     - Intercepts form submissions containing passwords/cards on unsafe destinations unless explicitly unlocked.
+     - Injects in-line visual warning badges directly adjacent to insecure form fields.
    - Analyzes live DOM telemetry:
      - Password input forms submitting to insecure HTTP or mismatched third-party domains.
+     - Credit card / financial details collected over HTTP or unvetted domains (`RULE_DOM_INSECURE_PAYMENT`, `RULE_DOM_PAYMENT_HARVESTING`).
+     - Cryptocurrency 12/24-word seed phrase or private key harvesting (`RULE_DOM_CRYPTO_SEED_PHRASE`).
+     - Fake tech support / virus scareware alerts and fraudulent hotlines (`RULE_DOM_SCAREWARE_URGENCY`).
      - Urgent social engineering phrases ("account suspended", "immediate action required").
      - Deceptive anchor tags (anchor text claims a known brand but `href` points elsewhere).
 
@@ -92,6 +100,7 @@ DefenceHub/
 ├── test_hardened_engine.js        # Hardened 20-scenario audit suite (20 tests)
 ├── test_harness.js                # Labeled benchmark harness & accuracy metrics (17 tests)
 ├── test_voice_and_auto_detection.js# Automatic navigation, voice TTS & failover test (9 tests)
+├── test_strict_security.js        # Strict security, payment & crypto seed shield test (7 tests)
 ├── make_icons.ps1                 # Asset generation script
 └── README.md                      # Complete documentation and hackathon submission guide
 ```

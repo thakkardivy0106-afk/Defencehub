@@ -17,7 +17,8 @@ let currentActiveTabId = null;
 let appSettings = {
   isDefenceHubOn: true,
   isMuted: false,
-  apiKey: ''
+  apiKey: '',
+  strictShieldEnabled: true
 };
 
 // Reputation Cache (Domain -> { status, provider, threatType, timestamp })
@@ -448,8 +449,17 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
         isDefenceHubOn: appSettings.isDefenceHubOn,
         isMuted: appSettings.isMuted,
         hasApiKey: !!appSettings.apiKey,
-        activeTabId: currentActiveTabId
+        activeTabId: currentActiveTabId,
+        strictShieldEnabled: appSettings.strictShieldEnabled !== false
       });
+      return true;
+    }
+
+    // Toggle Strict Credential Shield
+    if (message.type === 'TOGGLE_STRICT_SHIELD') {
+      appSettings.strictShieldEnabled = message.enabled !== undefined ? message.enabled : !appSettings.strictShieldEnabled;
+      chrome.storage.local.set({ defencehub_settings: appSettings });
+      sendResponse({ strictShieldEnabled: appSettings.strictShieldEnabled });
       return true;
     }
   });

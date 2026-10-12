@@ -63,7 +63,8 @@
   const HIGH_ABUSE_TLDS = new Set([
     'xyz', 'top', 'tk', 'ml', 'ga', 'cf', 'gq', 'buzz',
     'work', 'click', 'rest', 'country', 'fit', 'link', 'stream',
-    'surf', 'monster', 'quest', 'live', 'cam', 'icu', 'bar', 'sbs'
+    'surf', 'monster', 'quest', 'live', 'cam', 'icu', 'bar', 'sbs',
+    'zip', 'mov'
   ]);
 
   // Institutional and government TLD indicators
@@ -877,6 +878,25 @@
       recommendations.push(`Ensure you are not being forwarded to a third-party domain ('${redirectTarget}').`);
     }
 
+    // Rule A15: Non-Standard Web Service Port
+    if (parsedUrl.port && parsedUrl.port !== '80' && parsedUrl.port !== '443') {
+      const suspiciousPorts = new Set(['8080', '8888', '8443', '1337', '3128', '4444', '6666', '8000', '8081', '9000', '9090']);
+      if (suspiciousPorts.has(parsedUrl.port) && !hierarchy.isIp && !isKnownOfficial && !['localhost', '127.0.0.1'].includes(hostname)) {
+        findings.push({
+          id: 'RULE_NON_STANDARD_PORT',
+          title: `Non-Standard Web Service Port (Port :${parsedUrl.port})`,
+          category: 'URL Structure',
+          source: 'layer_a',
+          severity: 'LOW',
+          confidence: 'MEDIUM',
+          points: 15,
+          target: `Port :${parsedUrl.port}`,
+          explanation: `The URL connects via an atypical web port (:${parsedUrl.port}) rather than standard ports 80/443. Phishing kits and rogue proxies frequently operate on alternate ports to bypass security filters.`
+        });
+        recommendations.push(`Exercise caution on websites operating through non-standard network ports (:${parsedUrl.port}).`);
+      }
+    }
+
     // =========================================================================
     // LAYER B: LIVE PAGE BEHAVIOR & DOM ANALYSIS (when accessible)
     // =========================================================================
@@ -1004,6 +1024,69 @@
         });
         recommendations.push('Legitimate services do not ask for urgent password verification via unverified links.');
       }
+
+      // B5. Sensitive Payment Card / Financial Input Collection
+      if (pageData.hasPaymentInputs) {
+        if (isHttp) {
+          findings.push({
+            id: 'RULE_DOM_INSECURE_PAYMENT',
+            title: 'Credit Card / Payment Details on Insecure HTTP',
+            category: 'Content Security',
+            source: 'layer_b',
+            severity: 'HIGH',
+            confidence: 'HIGH',
+            points: 40,
+            target: 'Payment input on unencrypted HTTP',
+            explanation: 'The webpage requests credit card, CVV, or banking details over unencrypted HTTP. Payment data can be intercepted by anyone on the local network.'
+          });
+          recommendations.push('NEVER enter credit card or bank details on an unencrypted HTTP page.');
+        } else if (!isKnownOfficial && (findings.some(f => f.category === 'Brand Impersonation') || pageData.hasUrgencySignals)) {
+          findings.push({
+            id: 'RULE_DOM_PAYMENT_HARVESTING',
+            title: 'Suspicious Payment Information Harvesting',
+            category: 'Content Security',
+            source: 'layer_b',
+            severity: 'HIGH',
+            confidence: 'HIGH',
+            points: 35,
+            target: 'Payment input on unvetted domain',
+            explanation: 'The webpage requests credit card or banking information on a domain exhibiting brand lookalike or deceptive urgency indicators.'
+          });
+          recommendations.push('Do not enter payment cards on unverified or lookalike websites.');
+        }
+      }
+
+      // B6. Cryptocurrency Recovery Phrase / Seed Harvesting Detection
+      if ((pageData.hasCryptoSeedInputs || pageData.hasSeedPhraseSignals) && !isKnownOfficial) {
+        findings.push({
+          id: 'RULE_DOM_CRYPTO_SEED_PHRASE',
+          title: 'Cryptocurrency Secret Recovery Phrase Requested',
+          category: 'Content Security',
+          source: 'layer_b',
+          severity: 'CRITICAL',
+          confidence: 'HIGH',
+          points: 45,
+          target: '12/24-word seed phrase input',
+          explanation: 'The page requests a 12 or 24-word cryptocurrency secret recovery phrase or private key. Legitimate wallets and exchanges never ask users to enter seed phrases into a website.'
+        });
+        recommendations.push('CRITICAL ALERT: Never type or paste your secret recovery phrase or private key into any web browser!');
+      }
+
+      // B7. Fake Tech Support & Scareware Alert
+      if (pageData.hasScarewareSignals && !isKnownOfficial) {
+        findings.push({
+          id: 'RULE_DOM_SCAREWARE_URGENCY',
+          title: 'Fake Tech Support / Malware Scam Warning',
+          category: 'Content Security',
+          source: 'layer_b',
+          severity: 'HIGH',
+          confidence: 'HIGH',
+          points: 35,
+          target: 'Fake security alert / phone hotline',
+          explanation: 'The webpage displays deceptive virus alerts or urges calling a support phone number. This is a classic scareware social engineering scam.'
+        });
+        recommendations.push('Do not call phone numbers shown in browser popups claiming your computer is infected.');
+      }
     } else {
       limitations.push('Page DOM telemetry was inaccessible (running in URL-only analysis mode)');
     }
@@ -1078,11 +1161,15 @@
       f.id === 'RULE_BRAND_DECEPTIVE_COMBO'
     );
 
-    const hasPhishingBehavior = observedCredentialForm || findings.some(f =>
+    const hasPhishingBehavior = observedCredentialForm || (pageData && (pageData.hasPaymentInputs || pageData.hasCryptoSeedInputs || pageData.hasSeedPhraseSignals || pageData.hasScarewareSignals)) || findings.some(f =>
       f.id === 'RULE_DOM_TITLE_SPOOFING' ||
       f.id === 'RULE_DOM_INSECURE_FORM' ||
       f.id === 'RULE_DOM_CROSS_ORIGIN_LOGIN' ||
-      f.id === 'RULE_DOM_DECEPTIVE_URGENCY'
+      f.id === 'RULE_DOM_DECEPTIVE_URGENCY' ||
+      f.id === 'RULE_DOM_INSECURE_PAYMENT' ||
+      f.id === 'RULE_DOM_PAYMENT_HARVESTING' ||
+      f.id === 'RULE_DOM_CRYPTO_SEED_PHRASE' ||
+      f.id === 'RULE_DOM_SCAREWARE_URGENCY'
     );
 
     if (hasBrandLookalike && hasPhishingBehavior) {
@@ -1347,6 +1434,11 @@
         name: 'In-Page Form & DOM Telemetry',
         status: findings.some(f => f.category === 'Content Security') ? 'ALERT' : 'PASS',
         detail: `Evaluated ${pageData.forms ? pageData.forms.length : 0} forms and page title for spoofing`
+      });
+      checksCompleted.push({
+        name: 'Strict Credential & Financial Shield',
+        status: findings.some(f => f.id === 'RULE_DOM_INSECURE_PAYMENT' || f.id === 'RULE_DOM_PAYMENT_HARVESTING' || f.id === 'RULE_DOM_CRYPTO_SEED_PHRASE' || f.id === 'RULE_DOM_INSECURE_FORM') ? 'ALERT' : 'PASS',
+        detail: 'Real-time inspection of password inputs, credit cards, and crypto seed phrases'
       });
     }
 
